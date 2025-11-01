@@ -6,6 +6,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CodeIcon from '@mui/icons-material/Code';
 import BuildIcon from '@mui/icons-material/Build';
 import ArticleIcon from '@mui/icons-material/Article';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 
 const RunnerControls = ({
   isLoading,
@@ -23,6 +24,7 @@ const RunnerControls = ({
   setTimeoutDuration,
   isDebugMode,
   setIsDebugMode,
+  onSetApiKey,
 }) => {
   const [previewUrl, setPreviewUrl] = useState(null);
 
@@ -139,11 +141,21 @@ const RunnerControls = ({
       disabled: isLoading || isGeneratingArgs,
       InputProps: { inputProps: { min: 1 } }
     }),
+     React.createElement(Button, {
+        variant: "text",
+        size: "small",
+        onClick: onSetApiKey,
+        disabled: isLoading,
+        startIcon: React.createElement(VpnKeyIcon)
+      },
+      'Change API Key'
+    ),
     React.createElement(Button, {
         variant: "contained",
         size: "large",
         onClick: onExecute,
-        disabled: isLoading || isGeneratingArgs || !selectedFunction
+        disabled: isLoading || isGeneratingArgs || !selectedFunction,
+        sx: { mt: 1 }
       },
       isLoading ? React.createElement(CircularProgress, { size: 24, color: "inherit" }) : 'Execute Function'
     )

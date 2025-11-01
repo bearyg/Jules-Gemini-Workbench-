@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { FunctionRunner } from './components/FunctionRunner.js';
 import { ResponseViewer } from './components/ResponseViewer.js';
+import { ApiKeySetup } from './components/ApiKeySetup.js';
 import { extractExportedFunctionNames } from './services/functionExtractor.js';
 import { GoogleGenAI } from '@google/genai';
 import * as GoogleGenAIModule from '@google/genai';
@@ -42,15 +43,22 @@ const darkTheme = createTheme({
   },
 });
 
-// Safely gets the API key from the host environment, preventing a ReferenceError if `process` is not defined.
-const getHostApiKey = () => {
+// A consolidated function to get the API key. It prioritizes the user-provided key
+// from session storage, falling back to the AI Studio environment variable for compatibility.
+const getApiKey = () => {
+    const userApiKey = sessionStorage.getItem('gemini-api-key');
+    if (userApiKey) return userApiKey;
+    
     if (typeof process !== 'undefined' && process.env) {
         return process.env.API_KEY;
     }
-    return undefined;
+    return null;
 };
 
 const App = () => {
+  const [apiKey, setApiKey] = useState(getApiKey);
+  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
+  
   const [fileContent, setFileContent] = useState(null);
   const [processedFileContent, setProcessedFileContent] = useState(null);
   const [fileName, setFileName] = useState(null);
@@ -61,7 +69,6 @@ const App = () => {
   const [originalPrompts, setOriginalPrompts] = useState([]);
   const [editedPrompts, setEditedPrompts] = useState({});
   const [pendingToolUpdates, setPendingToolUpdates] = useState({});
-
 
   const [response, setResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,6 +88,13 @@ const App = () => {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
+    // If there's no API key on initial load, open the modal.
+    if (!apiKey) {
+        setIsApiModalOpen(true);
+    }
+  }, [apiKey]);
+
+  useEffect(() => {
     if (processedFileContent && selectedFunction) {
         const prompts = extractPromptsFromFunction(processedFileContent, selectedFunction);
         setOriginalPrompts(prompts);
@@ -93,9 +107,24 @@ const App = () => {
   }, [processedFileContent, selectedFunction]);
 
 
-  const handleFileSelect = (event) => {
+  const handleSaveApiKey = (newKey) => {
+    if (newKey) {
+      sessionStorage.setItem('gemini-api-key', newKey);
+      setApiKey(newKey);
+      setIsApiModalOpen(false);
+      setToast({ message: 'API Key saved for this session.', severity: 'success' });
+    }
+  };
+
+  const handleFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!apiKey) {
+        setToast({ message: 'Please set your API key before loading a file.', severity: 'error' });
+        setIsApiModalOpen(true);
+        return;
+    }
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -104,8 +133,7 @@ const App = () => {
         setIsFileProcessing(true);
         try {
             setToast({ message: `Analyzing and patching ${file.name}...`, severity: 'info' });
-            const apiKey = getHostApiKey();
-            if (!apiKey) throw new Error("Workbench could not find the API_KEY for the auto-patcher.");
+            
             const ai = new GoogleGenAI({ apiKey });
             
             const patchPrompt = `You are an expert senior software engineer specializing in the Google Gemini API. Your task is to analyze the provided JavaScript file and apply necessary corrections to ensure it runs correctly in a browser-based workbench environment. You MUST return the ENTIRE, COMPLETE, corrected file content. Do not add comments, explanations, or markdown.
@@ -318,13 +346,16 @@ ${content}
         setToast({ message: 'Cannot consult on an empty prompt.', severity: 'error' });
         return;
     }
+    if (!apiKey) {
+        setToast({ message: 'Please set your API key to consult the expert.', severity: 'error' });
+        setIsApiModalOpen(true);
+        return;
+    }
 
     setIsConsultingExpert(promptIndex);
     setToast({ message: 'Consulting prompt expert...', severity: 'info' });
 
     try {
-        const apiKey = getHostApiKey();
-        if (!apiKey) throw new Error("Workbench could not find the API_KEY for the expert consultation.");
         const ai = new GoogleGenAI({ apiKey });
         
         const metaPrompt = `You are a world-class prompt engineering expert specializing in the Google Gemini API. Your task is to analyze the user's prompt and rewrite it to be more effective.
@@ -405,7 +436,7 @@ ${improvedPrompt}
     } finally {
         setIsConsultingExpert(null);
     }
-  }, [originalPrompts, editedPrompts, pendingToolUpdates]);
+  }, [originalPrompts, editedPrompts, pendingToolUpdates, apiKey]);
 
 
   const handleScaffoldArgs = useCallback(async () => {
@@ -413,13 +444,17 @@ ${improvedPrompt}
       setToast({ message: 'Please select a function first.', severity: 'error' });
       return;
     }
+    if (!apiKey) {
+        setToast({ message: 'Workbench could not find the API_KEY to scaffold arguments.', severity: 'error' });
+        setIsApiModalOpen(true);
+        return;
+    }
+
     setIsGeneratingArgs(true);
     setError(null);
     setResponse(null);
 
     try {
-      const apiKey = getHostApiKey();
-      if (!apiKey) throw new Error("Workbench could not find the API_KEY to scaffold arguments.");
       const ai = new GoogleGenAI({ apiKey });
       const model = 'gemini-2.5-flash';
       
@@ -466,12 +501,17 @@ Function Name: '${selectedFunction}'
     } finally {
       setIsGeneratingArgs(false);
     }
-  }, [selectedFunction]);
+  }, [selectedFunction, apiKey]);
 
   const handleExecute = useCallback(async () => {
     if (!processedFileContent || !selectedFunction) {
       setError("Please load a file and select a function to execute.");
       return;
+    }
+    if (!apiKey) {
+        setToast({ message: 'Cannot execute function without an API Key.', severity: 'error' });
+        setIsApiModalOpen(true);
+        return;
     }
 
     setMainTab('results');
@@ -545,7 +585,7 @@ Function Name: '${selectedFunction}'
       let userModule;
       const isEsModule = /export\s/g.test(codeToExecute) && !/module\.exports|exports\./g.test(codeToExecute);
 
-      const hostApiKey = getHostApiKey();
+      const hostApiKey = apiKey; // Use the key from state
 
       if (isEsModule) {
         setExecutionStatus('Loading as ES Module...');
@@ -806,11 +846,16 @@ Function Name: '${selectedFunction}'
       setIsLoading(false);
       setExecutionStatus('');
     }
-  }, [processedFileContent, selectedFunction, functionArgs, inputFile, timeoutDuration, isDebugMode, editedPrompts, originalPrompts]);
+  }, [processedFileContent, selectedFunction, functionArgs, inputFile, timeoutDuration, isDebugMode, editedPrompts, originalPrompts, apiKey]);
 
   return React.createElement(ThemeProvider, { theme: darkTheme },
     React.createElement(CssBaseline),
-    React.createElement(Box, { sx: { display: 'flex', flexDirection: 'column', minHeight: '100vh' } },
+    React.createElement(ApiKeySetup, {
+        open: isApiModalOpen,
+        onClose: () => setIsApiModalOpen(false),
+        onSave: handleSaveApiKey,
+    }),
+    React.createElement(Box, { sx: { display: 'flex', flexDirection: 'column', minHeight: '100vh', filter: !apiKey ? 'blur(4px)' : 'none', pointerEvents: !apiKey ? 'none' : 'auto' } },
       React.createElement(AppBar, { position: "sticky", color: "default", elevation: 1, sx: { bgcolor: 'rgba(30, 41, 59, 0.7)', backdropFilter: 'blur(8px)' } },
         React.createElement(Container, { maxWidth: "xl" },
           React.createElement(Toolbar, { disableGutters: true },
@@ -877,6 +922,7 @@ Function Name: '${selectedFunction}'
             isConsultingExpert: isConsultingExpert,
             onConsultExpert: handleConsultExpert,
             pendingToolUpdates: pendingToolUpdates,
+            onSetApiKey: () => setIsApiModalOpen(true),
           }),
           mainTab === 'results' && React.createElement(ResponseViewer, {
             response: response?.text ?? '',
