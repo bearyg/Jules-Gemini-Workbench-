@@ -11,7 +11,11 @@
   "dependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@google/genai": "^1.27.0"
+    "@google/genai": "^1.27.0",
+    "@mui/material": "^7.3.4",
+    "@emotion/react": "^11.13.0",
+    "@emotion/styled": "^11.13.0",
+    "@mui/icons-material": "^5.16.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

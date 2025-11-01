@@ -2,20 +2,51 @@
 import React, { useState, useCallback, useRef, FC, Fragment, useEffect } from 'react';
 import { FunctionRunner } from './components/FunctionRunner';
 import { ResponseViewer } from './components/ResponseViewer';
-import { BotIcon } from './components/icons/BotIcon';
-import { UploadIcon } from './components/icons/UploadIcon';
-import { DownloadIcon } from './components/icons/DownloadIcon';
 import { extractExportedFunctionNames } from './services/functionExtractor';
-import { Toast } from './components/Toast';
 import { GoogleGenAI } from '@google/genai';
 import * as GoogleGenAIModule from '@google/genai';
 import { extractPromptsFromFunction } from './services/promptExtractor';
 import { getFunctionBody } from './services/codeUtilities';
 
+import { ThemeProvider, createTheme, CssBaseline, AppBar, Toolbar, Typography, Button, Container, Grid, Box, Snackbar, Alert, Tabs, Tab } from '@mui/material';
+import ScienceIcon from '@mui/icons-material/Science';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import DownloadIcon from '@mui/icons-material/Download';
+import CircularProgress from '@mui/material/CircularProgress';
+
 export interface GenerationResult {
   text: string;
   sources: any[] | undefined;
 }
+
+const darkTheme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#22d3ee', // cyan-400
+    },
+    secondary: {
+      main: '#f0abfc', // fuchsia-300
+    },
+    background: {
+      default: '#0f172a', // slate-900
+      paper: '#1e293b', // slate-800
+    },
+    text: {
+      primary: '#f1f5f9', // slate-100
+      secondary: '#94a3b8', // slate-400
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+        },
+      },
+    },
+  },
+});
 
 const App: FC = () => {
   const [fileContent, setFileContent] = useState<string | null>(null);
@@ -36,12 +67,13 @@ const App: FC = () => {
   const [isFileProcessing, setIsFileProcessing] = useState<boolean>(false);
   const [isConsultingExpert, setIsConsultingExpert] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
   const [executionStatus, setExecutionStatus] = useState<string>('');
   const [executionLogs, setExecutionLogs] = useState<string[]>([]);
   const [timeoutDuration, setTimeoutDuration] = useState<number>(90);
   const [isDebugMode, setIsDebugMode] = useState<boolean>(true);
   const [executedInputFileUrl, setExecutedInputFileUrl] = useState<string | null>(null);
+  const [mainTab, setMainTab] = useState<'workbench' | 'results'>('workbench');
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,7 +101,7 @@ const App: FC = () => {
       if (content) {
         setIsFileProcessing(true);
         try {
-            setToast({ message: `Analyzing and patching ${file.name}...`, type: 'success' });
+            setToast({ message: `Analyzing and patching ${file.name}...`, severity: 'info' });
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             const patchPrompt = `You are an expert senior software engineer specializing in the Google Gemini API. Your task is to analyze the provided JavaScript file and apply necessary corrections to ensure it runs correctly in a browser-based workbench environment. You MUST return the ENTIRE, COMPLETE, corrected file content. Do not add comments, explanations, or markdown.
@@ -166,20 +198,20 @@ ${content}
             
             const funcNames = extractExportedFunctionNames(patchedCode);
             if (funcNames.length === 0) {
-                setToast({ message: `No exported functions found in ${file.name}.`, type: 'error' });
+                setToast({ message: `No exported functions found in ${file.name}.`, severity: 'error' });
                 setAvailableFunctions([]);
                 setSelectedFunction('');
             } else {
                 setAvailableFunctions(funcNames);
                 setSelectedFunction(funcNames[0] || '');
                 if (wasPatched) {
-                    setToast({ message: `${file.name} loaded and automatically patched for the Workbench environment.`, type: 'success' });
+                    setToast({ message: `${file.name} loaded and automatically patched for the Workbench environment.`, severity: 'success' });
                 } else {
-                    setToast({ message: `${file.name} loaded. No patches were needed.`, type: 'success' });
+                    setToast({ message: `${file.name} loaded. No patches were needed.`, severity: 'success' });
                 }
             }
         } catch (patchError) {
-            setToast({ message: `Could not auto-patch file. Using original content. Error: ${(patchError as Error).message}`, type: 'error' });
+            setToast({ message: `Could not auto-patch file. Using original content. Error: ${(patchError as Error).message}`, severity: 'error' });
             setFileContent(content);
             setProcessedFileContent(content);
             setFileName(file.name);
@@ -192,19 +224,21 @@ ${content}
             setIsFileProcessing(false);
         }
       } else {
-        setToast({ message: 'Could not read file content.', type: 'error' });
+        setToast({ message: 'Could not read file content.', severity: 'error' });
       }
     };
     reader.onerror = () => {
-        setToast({ message: 'Error reading file.', type: 'error' });
+        setToast({ message: 'Error reading file.', severity: 'error' });
     }
     reader.readAsText(file);
-    event.target.value = '';
+    if (event.target) {
+        event.target.value = '';
+    }
   };
 
   const handleExportFile = useCallback(() => {
     if (!processedFileContent || !fileName) {
-      setToast({ message: 'No file loaded to export.', type: 'error' });
+      setToast({ message: 'No file loaded to export.', severity: 'error' });
       return;
     }
 
@@ -219,9 +253,9 @@ ${content}
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        setToast({ message: `Exported ${fileName} with your saved prompt changes.`, type: 'success' });
+        setToast({ message: `Exported ${fileName} with your saved prompt changes.`, severity: 'success' });
     } catch (e) {
-        setToast({ message: 'Failed to export file.', type: 'error' });
+        setToast({ message: 'Failed to export file.', severity: 'error' });
     }
   }, [processedFileContent, fileName]);
 
@@ -230,7 +264,7 @@ ${content}
     const editedPrompt = editedPrompts[promptIndex];
 
     if (!processedFileContent || !originalPrompt || editedPrompt === undefined || originalPrompt === editedPrompt) {
-        setToast({ message: 'No changes to save.', type: 'error' });
+        setToast({ message: 'No changes to save.', severity: 'error' });
         return;
     }
     
@@ -268,7 +302,7 @@ ${content}
     delete newPending[promptIndex];
     setPendingToolUpdates(newPending);
 
-    setToast({ message: toastMessage, type: 'success' });
+    setToast({ message: toastMessage, severity: 'success' });
   }, [processedFileContent, originalPrompts, editedPrompts, selectedFunction, pendingToolUpdates]);
   
   const handlePromptDiscard = useCallback((promptIndex: number) => {
@@ -284,12 +318,12 @@ ${content}
   const handleConsultExpert = useCallback(async (promptIndex: number) => {
     const userPrompt = editedPrompts[promptIndex] ?? originalPrompts[promptIndex];
     if (!userPrompt) {
-        setToast({ message: 'Cannot consult on an empty prompt.', type: 'error' });
+        setToast({ message: 'Cannot consult on an empty prompt.', severity: 'error' });
         return;
     }
 
     setIsConsultingExpert(promptIndex);
-    setToast({ message: 'Consulting prompt expert...', type: 'success' });
+    setToast({ message: 'Consulting prompt expert...', severity: 'info' });
 
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -359,7 +393,7 @@ ${improvedPrompt}
                 ...prev,
                 [promptIndex]: requiredTools
             }));
-             setToast({ message: 'Expert feedback applied. A tool configuration update is pending your save.', type: 'success' });
+             setToast({ message: 'Expert feedback applied. A tool configuration update is pending your save.', severity: 'success' });
         } else {
             // If there were pending tool updates but the new prompt doesn't need them, clear them.
             if(pendingToolUpdates[promptIndex]){
@@ -367,12 +401,12 @@ ${improvedPrompt}
               delete newPending[promptIndex];
               setPendingToolUpdates(newPending);
             }
-            setToast({ message: 'Expert feedback applied. Review and save the changes.', type: 'success' });
+            setToast({ message: 'Expert feedback applied. Review and save the changes.', severity: 'success' });
         }
 
     } catch (err) {
         const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setToast({ message: `Failed to get expert feedback: ${message}`, type: 'error' });
+        setToast({ message: `Failed to get expert feedback: ${message}`, severity: 'error' });
     } finally {
         setIsConsultingExpert(null);
     }
@@ -381,7 +415,7 @@ ${improvedPrompt}
 
   const handleScaffoldArgs = useCallback(async () => {
     if (!selectedFunction) {
-      setToast({ message: 'Please select a function first.', type: 'error' });
+      setToast({ message: 'Please select a function first.', severity: 'error' });
       return;
     }
     setIsGeneratingArgs(true);
@@ -423,7 +457,7 @@ Function Name: '${selectedFunction}'
       try {
         const parsedJson = JSON.parse(jsonString);
         setFunctionArgs(JSON.stringify(parsedJson, null, 2));
-        setToast({ message: 'Arguments scaffolded successfully. Please fill in the placeholder values.', type: 'success' });
+        setToast({ message: 'Arguments scaffolded successfully. Please fill in placeholder values.', severity: 'success' });
       } catch (e) {
         throw new Error("The AI generated invalid JSON. Please try again or enter it manually.");
       }
@@ -431,7 +465,7 @@ Function Name: '${selectedFunction}'
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred while generating arguments.';
       setError(message);
-      setToast({ message, type: 'error' });
+      setToast({ message, severity: 'error' });
     } finally {
       setIsGeneratingArgs(false);
     }
@@ -443,6 +477,7 @@ Function Name: '${selectedFunction}'
       return;
     }
 
+    setMainTab('results');
     setIsLoading(true);
     setError(null);
     setResponse(null);
@@ -782,97 +817,115 @@ Function Name: '${selectedFunction}'
   }, [processedFileContent, selectedFunction, functionArgs, inputFile, timeoutDuration, isDebugMode, editedPrompts, originalPrompts]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 p-4 sticky top-0 z-10">
-        <div className="container mx-auto flex items-center gap-3">
-          <BotIcon className="w-8 h-8 text-cyan-400" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-50">Jules Gemini Function Workbench</h1>
-            <p className="text-sm text-slate-400">Test your deployed Gemini functions in an isolated environment.</p>
-          </div>
-          <div className="flex-grow"></div>
-          <div className="flex items-center gap-2">
-            <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-                accept=".js,.ts"
-            />
-            <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isFileProcessing}
-                className="flex items-center justify-center gap-2 bg-slate-700 text-slate-200 font-semibold py-2 px-4 rounded-md hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-wait w-48"
-            >
-                {isFileProcessing ? (
-                    <Fragment>
-                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>Processing...</span>
-                    </Fragment>
-                ) : (
-                    <Fragment>
-                        <UploadIcon className="w-5 h-5" />
-                        <span>{fileName ? `Loaded: ${fileName}` : 'Load Service File'}</span>
-                    </Fragment>
-                )}
-            </button>
-            <button
-                onClick={handleExportFile}
-                disabled={!processedFileContent || isFileProcessing}
-                className="flex items-center gap-2 bg-slate-700 text-slate-200 font-semibold py-2 px-4 rounded-md hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                <DownloadIcon className="w-5 h-5" />
-                <span>Download Updated File</span>
-            </button>
-          </div>
-        </div>
-      </header>
-      
-      <main className="flex-grow container mx-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-        <FunctionRunner
-          isLoading={isLoading}
-          onExecute={handleExecute}
-          availableFunctions={availableFunctions}
-          selectedFunction={selectedFunction}
-          setSelectedFunction={setSelectedFunction}
-          isGeneratingArgs={isGeneratingArgs}
-          onScaffoldArgs={handleScaffoldArgs}
-          functionArgs={functionArgs}
-          setFunctionArgs={setFunctionArgs}
-          inputFile={inputFile}
-          setInputFile={setInputFile}
-          hasFileLoaded={!!processedFileContent}
-          timeoutDuration={timeoutDuration}
-          setTimeoutDuration={setTimeoutDuration}
-          isDebugMode={isDebugMode}
-          setIsDebugMode={setIsDebugMode}
-          originalCode={fileContent}
-          patchedCode={processedFileContent}
-          originalPrompts={originalPrompts}
-          editedPrompts={editedPrompts}
-          setEditedPrompts={setEditedPrompts}
-          onSavePrompt={handlePromptSave}
-          onDiscardPrompt={handlePromptDiscard}
-          isConsultingExpert={isConsultingExpert}
-          onConsultExpert={handleConsultExpert}
-          pendingToolUpdates={pendingToolUpdates}
-        />
-        <ResponseViewer
-          response={response?.text ?? ''}
-          sources={response?.sources}
-          isLoading={isLoading}
-          error={error}
-          statusMessage={executionStatus}
-          logs={executionLogs}
-          imageUrl={executedInputFileUrl}
-        />
-      </main>
+    <ThemeProvider theme={darkTheme}>
+        <CssBaseline />
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <AppBar position="sticky" color="default" elevation={1} sx={{ bgcolor: 'rgba(30, 41, 59, 0.7)', backdropFilter: 'blur(8px)' }}>
+                <Container maxWidth="xl">
+                    <Toolbar disableGutters>
+                        <ScienceIcon sx={{ mr: 1, color: 'primary.main' }} />
+                        <Typography variant="h6" noWrap component="div" sx={{ mr: 2, flexGrow: { xs: 1, md: 0 } }}>
+                            Jules Gemini Workbench
+                        </Typography>
+                        <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }} />
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileSelect}
+                                style={{ display: 'none' }}
+                                accept=".js,.ts"
+                            />
+                            <Button
+                                variant="outlined"
+                                color="primary"
+                                startIcon={isFileProcessing ? <CircularProgress size={20} color="inherit" /> : <UploadFileIcon />}
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isFileProcessing}
+                                sx={{ width: '220px' }}
+                            >
+                                {isFileProcessing ? 'Processing...' : (fileName ? `Loaded: ${fileName}` : 'Load Service File')}
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                color="primary"
+                                startIcon={<DownloadIcon />}
+                                onClick={handleExportFile}
+                                disabled={!processedFileContent || isFileProcessing}
+                            >
+                                Download Updated File
+                            </Button>
+                        </Box>
+                    </Toolbar>
+                </Container>
+            </AppBar>
+        
+            <Container component="main" maxWidth="xl" sx={{ flexGrow: 1, py: 4, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                    <Tabs value={mainTab} onChange={(e, newValue) => setMainTab(newValue)} aria-label="Main workbench tabs">
+                        <Tab label="Workbench" value="workbench" />
+                        <Tab label="Results" value="results" />
+                    </Tabs>
+                </Box>
+                <Box sx={{ flexGrow: 1, pt: 3, height: '100%' }}>
+                    {mainTab === 'workbench' && (
+                        <FunctionRunner
+                            isLoading={isLoading}
+                            onExecute={handleExecute}
+                            availableFunctions={availableFunctions}
+                            selectedFunction={selectedFunction}
+                            setSelectedFunction={setSelectedFunction}
+                            isGeneratingArgs={isGeneratingArgs}
+                            onScaffoldArgs={handleScaffoldArgs}
+                            functionArgs={functionArgs}
+                            setFunctionArgs={setFunctionArgs}
+                            inputFile={inputFile}
+                            setInputFile={setInputFile}
+                            hasFileLoaded={!!processedFileContent}
+                            timeoutDuration={timeoutDuration}
+                            setTimeoutDuration={setTimeoutDuration}
+                            isDebugMode={isDebugMode}
+                            setIsDebugMode={setIsDebugMode}
+                            originalCode={fileContent}
+                            patchedCode={processedFileContent}
+                            originalPrompts={originalPrompts}
+                            editedPrompts={editedPrompts}
+                            setEditedPrompts={setEditedPrompts}
+                            onSavePrompt={handlePromptSave}
+                            onDiscardPrompt={handlePromptDiscard}
+                            isConsultingExpert={isConsultingExpert}
+                            onConsultExpert={handleConsultExpert}
+                            pendingToolUpdates={pendingToolUpdates}
+                        />
+                    )}
+                    {mainTab === 'results' && (
+                        <ResponseViewer
+                            response={response?.text ?? ''}
+                            sources={response?.sources}
+                            isLoading={isLoading}
+                            error={error}
+                            statusMessage={executionStatus}
+                            logs={executionLogs}
+                            imageUrl={executedInputFileUrl}
+                        />
+                    )}
+                </Box>
+            </Container>
 
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-    </div>
+            {toast && (
+                <Snackbar 
+                    open={!!toast} 
+                    autoHideDuration={6000} 
+                    onClose={() => setToast(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                >
+                    <Alert onClose={() => setToast(null)} severity={toast.severity} sx={{ width: '100%' }}>
+                        {toast.message}
+                    </Alert>
+                </Snackbar>
+            )}
+        </Box>
+    </ThemeProvider>
   );
 };
 

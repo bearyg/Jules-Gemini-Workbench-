@@ -1,5 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
-import { BotIcon } from './icons/BotIcon';
+// FIX: Import 'Grid' component from '@mui/material'
+import { Box, Paper, Typography, Tabs, Tab, CircularProgress, Alert, Link, List, ListItem, Card, CardContent, Divider, Grid } from '@mui/material';
+import ScienceIcon from '@mui/icons-material/Science';
+import LinkIcon from '@mui/icons-material/Link';
 
 interface ResponseViewerProps {
   response: string;
@@ -24,21 +28,17 @@ interface InventoryItem {
   };
 }
 
-
-type Tab = 'response' | 'logs';
+type TabValue = 'response' | 'logs';
 
 export const ResponseViewer: React.FC<ResponseViewerProps> = ({ response, sources, isLoading, error, statusMessage, logs, imageUrl }) => {
-  const [activeTab, setActiveTab] = useState<Tab>('response');
+  const [activeTab, setActiveTab] = useState<TabValue>('response');
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[] | null>(null);
   const [highlightedItemIndex, setHighlightedItemIndex] = useState<number | null>(null);
 
-  
   useEffect(() => {
-    // When a new execution starts or finishes, switch to the response tab.
     if (response || error || isLoading) {
       setActiveTab('response');
     }
-    // Try to parse the response as inventory items
     if (response && imageUrl) {
       try {
         const parsed = JSON.parse(response);
@@ -59,174 +59,180 @@ export const ResponseViewer: React.FC<ResponseViewerProps> = ({ response, source
     if (!sources || sources.length === 0) return null;
 
     return (
-      <div className="mt-6 border-t border-slate-700 pt-4">
-        <h3 className="text-sm font-semibold text-slate-400 mb-3">Sources</h3>
-        <ul className="space-y-2">
+      <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>Sources</Typography>
+        <List dense>
           {sources.map((chunk, index) => {
             const source = chunk.web || chunk.maps;
             if (!source || !source.uri) return null;
             return (
-              <li key={index} className="text-xs">
-                <a 
+              <ListItem key={index} disableGutters>
+                <Link 
                   href={source.uri} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
-                  aria-label={`Source: ${source.title || source.uri}`}
+                  variant="body2"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-                  </svg>
-                  <span className="truncate">{source.title || source.uri}</span>
-                </a>
-              </li>
+                  <LinkIcon sx={{ fontSize: '1rem' }} />
+                  <Typography variant="caption" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {source.title || source.uri}
+                  </Typography>
+                </Link>
+              </ListItem>
             );
           })}
-        </ul>
-      </div>
+        </List>
+      </Box>
     );
   };
-  
-  const hasLogs = logs && logs.length > 0;
 
-  const getTabClassName = (tab: Tab) => {
-    const isActive = activeTab === tab;
-    return `relative py-2 px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 rounded-t-md
-      ${isActive ? 'text-slate-100' : 'text-slate-400 hover:text-slate-200'}`;
-  };
-
-  const ActiveTabIndicator = () => <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500" />;
-  
-  const renderResponseTab = () => {
+  const renderResponseContent = () => {
     if (isLoading) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center">
-          <svg className="animate-spin h-8 w-8 text-cyan-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-lg font-medium">Executing...</p>
-          <p className="text-sm mt-2 font-mono bg-slate-900/50 px-2 py-1 rounded">{statusMessage || 'Please wait...'}</p>
-        </div>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center' }}>
+          <CircularProgress color="primary" sx={{ mb: 2 }} />
+          <Typography variant="h6">Executing...</Typography>
+          <Typography variant="body2" color="text.secondary">{statusMessage || 'Please wait...'}</Typography>
+        </Box>
       );
     }
     if (error) {
       return (
-        <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-md h-full">
-          <h3 className="font-bold mb-2">An Error Occurred</h3>
-          <pre className="text-sm whitespace-pre-wrap font-mono">{error}</pre>
-        </div>
+        <Alert severity="error" sx={{ height: '100%', '.MuiAlert-message': { width: '100%' } }}>
+          <Typography variant="h6" component="div" gutterBottom>An Error Occurred</Typography>
+          <Box component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.8rem', overflow: 'auto' }}>
+            {error}
+          </Box>
+        </Alert>
       );
     }
     if (imageUrl && inventoryItems) {
       return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full max-h-[calc(100vh-250px)]">
-              <div className="relative w-full h-full flex items-center justify-center bg-slate-950/50 rounded-lg overflow-hidden p-2">
-                  <img src={imageUrl} alt="Analysis subject" className="max-w-full max-h-full object-contain" />
-                  {inventoryItems.map((item, index) =>
-                      item.boundingBox && (
-                          <div
-                              key={index}
-                              className={`absolute border-2 rounded-sm cursor-pointer transition-all duration-200 ${highlightedItemIndex === index ? 'bg-cyan-400/40 border-cyan-300 shadow-lg' : 'bg-cyan-400/20 border-cyan-400'}`}
-                              style={{
-                                  left: `${item.boundingBox.x}%`,
-                                  top: `${item.boundingBox.y}%`,
-                                  width: `${item.boundingBox.width}%`,
-                                  height: `${item.boundingBox.height}%`,
-                              }}
-                              onMouseEnter={() => setHighlightedItemIndex(index)}
-                              onMouseLeave={() => setHighlightedItemIndex(null)}
-                          >
-                              <span className={`absolute -top-6 left-0 text-xs font-bold text-white bg-cyan-600 px-2 py-0.5 rounded-t-md transition-opacity duration-200 pointer-events-none ${highlightedItemIndex === index ? 'opacity-100' : 'opacity-0'}`}>
-                                  {item.name}
-                              </span>
-                          </div>
-                      )
-                  )}
-              </div>
-              <div className="overflow-y-auto pr-2">
-                  <h3 className="text-base font-semibold text-slate-300 mb-3 sticky top-0 bg-slate-900/80 backdrop-blur-sm pb-2 z-10">Identified Items</h3>
-                  <ul className="space-y-3">
-                      {inventoryItems.map((item, index) => (
-                          <li
-                              key={index}
-                              className={`p-3 rounded-lg border transition-all duration-200 ${highlightedItemIndex === index ? 'bg-slate-700/80 border-cyan-500 scale-[1.02]' : 'bg-slate-800/80 border-slate-700'}`}
-                              onMouseEnter={() => setHighlightedItemIndex(index)}
-                              onMouseLeave={() => setHighlightedItemIndex(null)}
-                          >
-                              <p className="font-bold text-slate-100">{item.name}</p>
-                              <p className="text-sm text-slate-400">{item.category}</p>
-                              <p className="text-lg font-semibold text-cyan-400 mt-1">${(item.estimatedValue || 0).toFixed(2)}</p>
-                              {item.sourceUrl && (
-                                  <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-500 hover:text-cyan-400 truncate block mt-1">
-                                      {item.sourceUrl}
-                                  </a>
-                              )}
-                          </li>
-                      ))}
-                  </ul>
-                  {renderSources()}
-              </div>
-          </div>
+        <Grid container spacing={2} sx={{ height: '100%', maxHeight: 'calc(100vh - 250px)' }}>
+          <Grid item xs={12} md={6} sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 1, p: 1 }}>
+            <Box component="img" src={imageUrl} alt="Analysis subject" sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+            {inventoryItems.map((item, index) =>
+              item.boundingBox && (
+                <Box
+                  key={index}
+                  sx={{
+                    position: 'absolute',
+                    border: 2,
+                    borderColor: 'primary.main',
+                    borderRadius: '2px',
+                    cursor: 'pointer',
+                    bgcolor: highlightedItemIndex === index ? 'rgba(34, 211, 238, 0.4)' : 'rgba(34, 211, 238, 0.2)',
+                    transition: (theme) => theme.transitions.create(['background-color', 'border-color']),
+                    left: `${item.boundingBox.x}%`,
+                    top: `${item.boundingBox.y}%`,
+                    width: `${item.boundingBox.width}%`,
+                    height: `${item.boundingBox.height}%`,
+                  }}
+                  onMouseEnter={() => setHighlightedItemIndex(index)}
+                  onMouseLeave={() => setHighlightedItemIndex(null)}
+                >
+                  <Typography
+                    sx={{
+                      position: 'absolute',
+                      top: '-24px',
+                      left: 0,
+                      fontSize: '0.7rem',
+                      fontWeight: 'bold',
+                      color: 'white',
+                      bgcolor: 'primary.main',
+                      px: 1,
+                      py: 0.2,
+                      borderRadius: '4px 4px 0 0',
+                      transition: (theme) => theme.transitions.create('opacity'),
+                      opacity: highlightedItemIndex === index ? 1 : 0,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {item.name}
+                  </Typography>
+                </Box>
+              )
+            )}
+          </Grid>
+          <Grid item xs={12} md={6} sx={{ overflow: 'auto' }}>
+            <Typography variant="h6" gutterBottom>Identified Items</Typography>
+            <List sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {inventoryItems.map((item, index) => (
+                <Card
+                  key={index}
+                  onMouseEnter={() => setHighlightedItemIndex(index)}
+                  onMouseLeave={() => setHighlightedItemIndex(null)}
+                  variant="outlined"
+                  sx={{
+                    bgcolor: highlightedItemIndex === index ? 'rgba(34, 211, 238, 0.1)' : 'transparent',
+                    borderColor: highlightedItemIndex === index ? 'primary.main' : 'divider',
+                    transition: (theme) => theme.transitions.create(['background-color', 'border-color']),
+                  }}
+                >
+                  <CardContent>
+                    <Typography variant="body1" fontWeight="bold">{item.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">{item.category}</Typography>
+                    <Typography variant="h5" color="primary.main" sx={{ mt: 1 }}>${(item.estimatedValue || 0).toFixed(2)}</Typography>
+                    {item.sourceUrl && (
+                      <Link href={item.sourceUrl} target="_blank" rel="noopener noreferrer" variant="caption" sx={{ display: 'block', mt: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.sourceUrl}
+                      </Link>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </List>
+            {renderSources()}
+          </Grid>
+        </Grid>
       );
     }
     if (response) {
       return (
-        <div className="prose prose-invert prose-sm max-w-none">
-          <pre className="bg-transparent p-0 whitespace-pre-wrap font-mono">{response}</pre>
-          {renderSources()}
-        </div>
+        <Box>
+            <Box component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                {response}
+            </Box>
+            {renderSources()}
+        </Box>
       );
     }
     return (
-        <div className="flex items-center justify-center h-full text-slate-500">
-            <p>Your generated response will appear here.</p>
-        </div>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <Typography color="text.secondary">Your generated response will appear here.</Typography>
+      </Box>
     );
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 flex flex-col h-full">
-      <div className="flex items-center gap-2 p-4 border-b border-slate-700">
-          <BotIcon className="w-6 h-6 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-slate-200">Gemini Response</h2>
-      </div>
+    <Paper elevation={2} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <ScienceIcon color="primary" />
+        <Typography variant="h6">Gemini Response</Typography>
+      </Box>
 
-      <div className="px-6 border-b border-slate-700">
-        <div className="flex items-center -mb-px">
-          <button className={getTabClassName('response')} onClick={() => setActiveTab('response')}>
-            Response
-            {activeTab === 'response' && <ActiveTabIndicator />}
-          </button>
-          <button className={getTabClassName('logs')} onClick={() => setActiveTab('logs')}>
-            Execution Logs
-            {hasLogs && (
-              <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-cyan-100 bg-cyan-600/50 rounded-full">
-                {logs.length}
-              </span>
-            )}
-            {activeTab === 'logs' && <ActiveTabIndicator />}
-          </button>
-        </div>
-      </div>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} aria-label="response tabs">
+          <Tab label="Response" value="response" />
+          <Tab label={`Execution Logs ${logs.length > 0 ? `(${logs.length})` : ''}`} value="logs" />
+        </Tabs>
+      </Box>
       
-      <div className="flex-grow bg-slate-900/50 p-4 overflow-auto rounded-b-lg">
-        {activeTab === 'response' && renderResponseTab()}
-
+      <Box sx={{ flexGrow: 1, p: 2, overflow: 'auto', bgcolor: 'rgba(0,0,0,0.15)' }}>
+        {activeTab === 'response' && renderResponseContent()}
         {activeTab === 'logs' && (
-          <div>
-            {hasLogs ? (
-                 <pre className="bg-slate-950/70 p-3 rounded-md text-xs text-slate-300 font-mono whitespace-pre-wrap h-full">
-                    {logs.join('\n')}
-                </pre>
-            ) : (
-                <div className="flex items-center justify-center h-full text-slate-500">
-                    <p>Any output from `console.log` will appear here.</p>
-                </div>
-            )}
-          </div>
+          logs.length > 0 ? (
+            <Box component="pre" sx={{ bgcolor: 'rgba(0,0,0,0.2)', p: 2, borderRadius: 1, fontSize: '0.8rem', color: 'text.secondary', fontFamily: 'monospace', whiteSpace: 'pre-wrap', height: '100%' }}>
+              {logs.join('\n')}
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <Typography color="text.secondary">Any output from `console.log` will appear here.</Typography>
+            </Box>
+          )
         )}
-      </div>
-    </div>
+      </Box>
+    </Paper>
   );
 };
