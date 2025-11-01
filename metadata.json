@@ -1,0 +1,7 @@
+{
+  "name": "Jules Gemini Function Workbench",
+  "description": "A workbench to test and execute the exact functions from your project that interact with the Gemini API. Load your service file, select a function, provide arguments and files, and see the live results.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
