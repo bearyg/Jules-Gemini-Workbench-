@@ -32,6 +32,14 @@
 </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Polyfill `process` for the browser environment. The hosting environment
+      // injects the API_KEY into `process.env`, but it doesn't create the
+      // `process` object itself. This prevents a `ReferenceError`.
+      if (typeof window.process === 'undefined') {
+        window.process = { env: {} };
+      }
+    </script>
     <script type="module" src="index.js"></script>
   </body>
 </html>
