@@ -42,6 +42,14 @@ const darkTheme = createTheme({
   },
 });
 
+// Safely gets the API key from the host environment, preventing a ReferenceError if `process` is not defined.
+const getHostApiKey = () => {
+    if (typeof process !== 'undefined' && process.env) {
+        return process.env.API_KEY;
+    }
+    return undefined;
+};
+
 const App = () => {
   const [fileContent, setFileContent] = useState(null);
   const [processedFileContent, setProcessedFileContent] = useState(null);
@@ -96,7 +104,9 @@ const App = () => {
         setIsFileProcessing(true);
         try {
             setToast({ message: `Analyzing and patching ${file.name}...`, severity: 'info' });
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = getHostApiKey();
+            if (!apiKey) throw new Error("Workbench could not find the API_KEY for the auto-patcher.");
+            const ai = new GoogleGenAI({ apiKey });
             
             const patchPrompt = `You are an expert senior software engineer specializing in the Google Gemini API. Your task is to analyze the provided JavaScript file and apply necessary corrections to ensure it runs correctly in a browser-based workbench environment. You MUST return the ENTIRE, COMPLETE, corrected file content. Do not add comments, explanations, or markdown.
 
@@ -313,7 +323,9 @@ ${content}
     setToast({ message: 'Consulting prompt expert...', severity: 'info' });
 
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const apiKey = getHostApiKey();
+        if (!apiKey) throw new Error("Workbench could not find the API_KEY for the expert consultation.");
+        const ai = new GoogleGenAI({ apiKey });
         
         const metaPrompt = `You are a world-class prompt engineering expert specializing in the Google Gemini API. Your task is to analyze the user's prompt and rewrite it to be more effective.
 
@@ -406,7 +418,9 @@ ${improvedPrompt}
     setResponse(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = getHostApiKey();
+      if (!apiKey) throw new Error("Workbench could not find the API_KEY to scaffold arguments.");
+      const ai = new GoogleGenAI({ apiKey });
       const model = 'gemini-2.5-flash';
       
       const prompt = `You are an intelligent assistant that creates a JSON argument template for a JavaScript function. Your response MUST be ONLY the raw, parsable JSON object. Do not include markdown, comments, or explanations.
@@ -531,7 +545,7 @@ Function Name: '${selectedFunction}'
       let userModule;
       const isEsModule = /export\s/g.test(codeToExecute) && !/module\.exports|exports\./g.test(codeToExecute);
 
-      const hostApiKey = process.env.API_KEY;
+      const hostApiKey = getHostApiKey();
 
       if (isEsModule) {
         setExecutionStatus('Loading as ES Module...');
