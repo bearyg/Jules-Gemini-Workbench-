@@ -1,0 +1,171 @@
+Master Prompt for Recreating the "Jules Gemini Function Workbench"
+Objective:
+Your task is to act as a world-class senior frontend engineer and recreate the "Jules Gemini Function Workbench" application from scratch. This is a sophisticated, single-page web application built with React and TypeScript. You must adhere to all specifications regarding functionality, UI/UX, architecture, and code quality. The final output must be the complete set of files required to run the application, formatted in the specified XML structure.
+1. High-Level Concept & Purpose
+The "Jules Gemini Function Workbench" is a developer tool designed to test and iterate on JavaScript functions that interact with the Google Gemini API. It allows a developer to load a service file (e.g., geminiService.js), which is then automatically patched to run in a browser environment. The user can select any exported function from the file, provide arguments (either manually or by scaffolding them with AI), attach an optional file, and execute the function in a sandboxed environment. The application provides detailed output, including the function's return value, execution logs, and any errors, creating a tight feedback loop for prompt engineering and function development.
+2. Core Functionality & User Flow
+Initial State: The application starts with an empty state, prompting the user to load a service file.
+File Loading: The user clicks "Load Service File" and selects a local .js or .ts file.
+Auto-Patching: Upon loading, the application sends the file's content to the Gemini API with a specialized meta-prompt (specified below). This "auto-patcher" corrects common server-side patterns (like API key retrieval) and modernizes deprecated Gemini SDK usage to make the code browser-compatible. A toast notification informs the user if the file was patched.
+Function Extraction: The application parses the (potentially patched) code to find all exported function names (supporting both CommonJS and ES Modules) and populates a dropdown menu with them.
+Function Selection: The user selects a function to test from the dropdown.
+Prompt Extraction & Editing: The application analyzes the selected function's code and extracts any large, multi-line template literals, assuming they are Gemini prompts. These are displayed in the "Prompts" tab, where the user can edit them.
+Prompt Improvement: For any extracted prompt, the user can click "Consult Expert." This triggers a two-step AI process:
+a. The prompt is sent to an AI expert to be rewritten for clarity and effectiveness.
+b. The improved prompt is then analyzed by another AI to determine if it requires specific tools (googleSearch, googleMaps).
+The improved prompt and any required tool changes are presented to the user as a pending change.
+Saving Prompts: The user can save their edited prompts, which updates the in-memory version of the code that will be executed.
+Argument Scaffolding: The user can click "Scaffold Arguments" to have an AI generate a sample JSON object with the expected structure for the selected function.
+Argument & File Input: The user provides arguments as a JSON string in a textarea and can optionally attach a file (e.g., an image for analysis).
+Execution: The user clicks "Execute Function."
+Sandboxed Execution: The application executes the function within a secure, sandboxed web environment. This sandbox intercepts and mocks Node.js-specific features like process.env and require('@google-cloud/secret-manager'), and it polyfills require('@google/genai') to add logging.
+Displaying Results:
+Response Tab: Shows the function's return value. If the response is a JSON array from an image analysis function, it displays a special UI with the image and interactive bounding boxes. If the response contains sources from a grounded model, it lists them as clickable links.
+Logs Tab: Shows a real-time stream of all console.log statements and API call details from the execution.
+Errors are displayed prominently in a formatted error panel.
+Exporting: The user can click "Download Updated File" to save the patched file, which includes any prompts they have permanently saved.
+3. UI/UX and Design Specifications
+Framework/Styling: Use React with TypeScript. Style the application with TailwindCSS via its CDN link. The overall theme is dark (slate gray/blue) with cyan as the primary accent color for interactive elements. The font should be Inter.
+Layout: A two-column responsive layout. The left column is the FunctionRunner and the right is the ResponseViewer.
+Header: A sticky header with a blur effect. It contains the app title ("Jules Gemini Function Workbench"), a subtitle, an icon (BotIcon), and two main buttons: "Load Service File" and "Download Updated File". The load button should show the name of the loaded file.
+Left Panel (FunctionRunner):
+A tabbed interface for "Runner," "Code," and "Prompts."
+Runner Tab: Contains all user controls: function selection dropdown, argument scaffolding button, JSON arguments textarea, file attachment area, debug mode toggle, timeout input, and the main "Execute Function" button.
+Code Tab: A side-by-side view showing the "Original Uploaded Code" and the "Live Code (Executable)" after patching.
+Prompts Tab: Displays each extracted prompt in a separate PromptEditor component, allowing for text editing, expert consultation, saving, and discarding changes.
+Right Panel (ResponseViewer):
+A tabbed interface for "Response" and "Execution Logs."
+Response Tab: Shows a loading spinner during execution. Displays the final response (formatted as a <pre> tag) or the specialized image inventory UI. Displays errors in a distinct red-themed block.
+Logs Tab: Displays console output in a <pre> block.
+Toast Notifications: Use a Toast component for non-blocking feedback (e.g., "File loaded successfully," "Prompt saved," "Error reading file"). They should appear in the bottom-right corner and auto-dismiss.
+4. Technical Architecture and File Structure
+Create the following file structure and content:
+code
+Code
+/index.html
+/index.tsx
+/metadata.json
+/App.tsx
+/components/FunctionRunner.tsx
+/components/ResponseViewer.tsx
+/components/PromptEditor.tsx
+/components/Toast.tsx
+/components/icons/BotIcon.tsx
+/components/icons/UploadIcon.tsx
+/components/icons/DownloadIcon.tsx
+/components/icons/SparklesIcon.tsx
+/components/icons/CodeIcon.tsx
+/components/icons/CheckIcon.tsx
+/services/functionExtractor.ts
+/services/promptExtractor.ts
+/services/codeUtilities.ts
+5. Component and Service Implementation Details
+index.html: Standard HTML5 boilerplate. MUST include the TailwindCSS CDN, the Inter font from rsms.me, and a <script type="importmap"> to map React and @google/genai to CDN URLs.
+index.tsx: Standard React root initialization.
+metadata.json: Configure the app name, description, and request geolocation permissions.
+App.tsx:
+This is the main component. Manage all application state here using useState, useCallback, etc. Key states include: fileContent, processedFileContent, fileName, availableFunctions, selectedFunction, functionArgs, inputFile, originalPrompts, editedPrompts, pendingToolUpdates, response, isLoading, error, executionLogs, toast, etc.
+handleFileSelect: Contains the file reading logic and the Auto-Patcher. The logic MUST use the Gemini API with the exact meta-prompt provided in the section below. After patching, it calls extractExportedFunctionNames.
+handleExecute: Contains the Sandboxed Execution logic. This is the most complex part. It must create a sandboxed environment that mocks/polyfills Node.js features as detailed in the section below. It must also handle timeouts and log interception.
+handleScaffoldArgs: Calls the Gemini API to generate a JSON template for the function arguments.
+handleConsultExpert: Implements the two-step AI call to first improve a prompt, then analyze it for required tools.
+handlePromptSave: Updates the processedFileContent state by replacing the original prompt text with the edited version and applying any pending tool changes.
+handleExportFile: Creates a blob from processedFileContent and triggers a download.
+FunctionRunner.tsx: The UI for the left panel. It receives state and callbacks as props from App.tsx. Manages the active tab state ('runner', 'code', 'prompts').
+ResponseViewer.tsx: The UI for the right panel. It receives response data as props. It must contain the logic to conditionally render the standard text response, the error view, the loading view, or the special image inventory view with bounding boxes.
+PromptEditor.tsx: A component that takes a prompt, displays it in a textarea, and provides buttons for "Consult Expert," "Discard," and "Save Changes."
+services/functionExtractor.ts: Exports a single function extractExportedFunctionNames(code: string). It must use regex to find function names from module.exports, exports., and export statements.
+services/promptExtractor.ts: Exports extractPromptsFromFunction(code: string, functionName: string). It must first find the function's body using getFunctionBody and then use regex to find template literals (`...`) that are multi-line and over 100 characters long.
+services/codeUtilities.ts: Exports getFunctionBody(code: string, functionName: string). This utility uses regex and brace counting to reliably extract the full source text of a function body from the file content.
+6. Critical Implementation Logic (MUST be implemented precisely)
+A. The Auto-Patcher Meta-Prompt (for handleFileSelect)
+When a file is loaded, you MUST call the Gemini API with the following master prompt, inserting the user's code where indicated.
+code
+Prompt
+You are an expert senior software engineer specializing in the Google Gemini API. Your task is to analyze the provided JavaScript file and apply necessary corrections to ensure it runs correctly in a browser-based workbench environment. You MUST return the ENTIRE, COMPLETE, corrected file content. Do not add comments, explanations, or markdown.
+
+**MANDATORY CORRECTION RULES (APPLY THESE ONLY IF NEEDED):**
+
+1.  **IDEMPOTENT ENVIRONMENT-AWARE API KEY in \`getApiKey\`:**
+    *   **First, CHECK if the \`getApiKey\` function ALREADY contains the string \`process.env.BROWSER_ENV === 'true'\`.**
+    *   **If it does,** you MUST NOT modify the function. Leave it exactly as it is.
+    *   **If it does NOT,** you MUST modify the function to be environment-aware by wrapping the original code as shown in the example below. The wrapper MUST check for \`process.env.BROWSER_ENV === 'true'\`. If true, it returns \`process.env.API_KEY\`; if false, it executes the original server-side logic.
+    *   **Example Structure to ADD if missing:**
+        \`\`\`javascript
+        const getApiKey = async () => {
+          if (process.env.BROWSER_ENV === 'true') {
+            const apiKey = process.env.API_KEY;
+            if (!apiKey) throw new Error('Workbench Error: API_KEY not provided.');
+            return apiKey;
+          } else {
+            // ORIGINAL SERVER-SIDE CODE GOES HERE
+          }
+        };
+        \`\`\`
+
+2.  **ARCHITECTURAL REFACTOR in \`getPropertyMetadata\`:**
+    *   **CHECK if the function uses a complex, unreliable multi-agent system.** IF IT DOES, you MUST refactor it to make a SINGLE Gemini API call.
+    *   The refactored function MUST access the address via \`args.address\`. The old \`args.property.address\` structure is FORBIDDEN.
+    *   Ensure the refactored function validates the presence of \`args.address\` and its fields (\`street\`, \`city\`, \`state\`, \`zip\`).
+
+3.  **CORRECT API CALL STRUCTURE (Global):**
+    *   **ENSURE** that for any \`generateContent\` call, the \`tools\` parameter is nested inside a \`config\` object.
+    *   In \`getPropertyMetadata\`, ensure the \`tools\` array contains BOTH \`{googleSearch: {}}\` and \`{googleMaps: {}}\`.
+    *   **Correct:** \`...({ config: { tools: [...] } })\`
+    *   **Incorrect:** \`...({ tools: [...] })\` <-- FIX THIS IF YOU SEE IT.
+
+4.  **CORRECT MODEL SELECTION (Global):**
+    *   Ensure the following models are used. If other models like 'gemini-1.5-pro' are present, update them.
+    *   \`getPropertyMetadata\` MUST use \`'gemini-2.5-flash'\`.
+    *   \`identifyItemsInImage\` MUST use \`'gemini-2.5-pro'\`.
+
+5.  **DEPRECATED SDK USAGE (Global):**
+    *   **If you find** the deprecated \`genAI.getGenerativeModel(...)\` pattern, you MUST replace it with the correct direct call: \`genAI.models.generateContent({ ... })\`.
+
+6.  **CRITICAL - DEPRECATED RESPONSE HANDLING (Global):**
+    *   The current Gemini SDK returns a response object with a direct \`.text\` property. The old SDK returned a nested object. This is a common breaking change.
+    *   You MUST find all instances where the code attempts to access the model's text output through a nested \`response\` object. This is **ALWAYS WRONG** with the current SDK.
+    *   **Examples of the WRONG pattern to find and fix:**
+        *   \`const text = result.response.text();\`
+        *   \`const text = someVariable.response?.text();\`
+        *   \`const jsonText = apiResult.response.text;\`
+        *   \`return result.response;\` (when the calling code expects to do \`.text()\` on it later)
+    *   **You MUST REPLACE** these with the correct, direct access pattern: \`result.text\`.
+    *   **Example Fix:**
+        *   **Incorrect:** \`const text = result.response.text();\`
+        *   **Correct:** \`const text = result.text;\`
+    *   This is a high-priority fix. Do not miss any occurrences.
+
+7.  **API VIOLATION (Global):**
+    *   **If** a \`config\` object uses the \`tools\` parameter, you MUST REMOVE any \`responseMimeType\` and \`responseSchema\` properties from that same config object.
+
+8.  **JSON PARSING (Global):**
+    *   **If** you remove \`responseMimeType: 'application/json'\` as per rule #7, you MUST add logic to manually parse the JSON from the model's text response, for example: \`result.text.match(/\\{[\\s\\S]*\\}/)\`.
+
+9.  **VALIDATION in \`identifyItemsInImage\`:**
+    *   **Ensure** the function validates that its input is a string starting with 'data:'. If this check is missing, add it to the top of the function.
+
+10. **MODULE FORMAT (Global):**
+    *   The file uses CommonJS. You MUST preserve this format (\`require\`, \`module.exports\`). DO NOT convert to ES Modules.
+
+Apply ALL necessary fixes based on these rules and return the complete, corrected file. If no fixes are needed, return the original code unchanged.
+
+**Original Code to Patch:**
+\`\`\`javascript
+${content}
+\`\`\`
+B. The Sandboxed Execution Environment (for handleExecute)
+When executing user code (for a CommonJS module), you MUST NOT use eval directly. Instead, create a sandboxed environment with the following polyfills and mocks:
+process.env: Create a Proxy for process.env.
+If prop === 'API_KEY', return the host's process.env.API_KEY.
+If prop === 'BROWSER_ENV', return 'true'.
+If prop === 'GEMINI_API_KEY_SECRET_NAME', return a placeholder mock value.
+For any other property, log a warning and return undefined.
+require function: Create a requirePolyfill function.
+If moduleName === '@google/genai', return a proxied version of the real @google/genai module. This proxy should intercept calls to new GoogleGenAI() and genAI.models.generateContent to log the call arguments and responses to the execution logs.
+If moduleName === '@google-cloud/secret-manager', return a mock object that simulates the SecretManagerServiceClient. The mock accessSecretVersion method should return a promise that resolves to a mock payload containing the host's API_KEY.
+For any other module, return a generic proxy that logs a warning.
+Execution: Use the new Function(...) constructor to execute the user's code, passing in the sandboxed module, exports, process, and require objects.
+For ES Modules, create a blob URL from the code (prepending the process.env proxy definition) and use a dynamic import() statement.
+Finally, wrap the execution call in Promise.race with a setTimeout to enforce the user-configurable timeout.
+Now, proceed to generate all the necessary files based on this comprehensive specification. Ensure the final output is clean, well-organized, performant, and adheres to all modern React best practices.

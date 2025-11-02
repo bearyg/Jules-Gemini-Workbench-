@@ -1,1 +1,46 @@
-b���氢�]��Z���*+~�'���zx"���.�֬�+-�j����籊�b�
+Prompt to Adapt the "Jules Gemini Function Workbench" for Public Deployment on GitHub Pages
+Objective:
+Modify the existing "Jules Gemini Function Workbench" application, which was initially designed for a sandboxed environment like AI Studio, to be fully functional, secure, and user-friendly when deployed as a static web page on a public host like GitHub Pages.
+Core Problem to Solve:
+The application currently assumes the Gemini API key is automatically provided via process.env.API_KEY. In a public static hosting environment, this variable does not exist. The application must be refactored to handle a user-provided API key.
+Detailed Requirements & Implementation Steps:
+Remove Environment Dependencies:
+Scour the entire codebase for any reliance on process.env.
+The primary goal is to shift from an environment-injected key to a user-managed key.
+CRITICAL: Do not add any polyfills for process or process.env in index.html or elsewhere. This approach is flawed and interferes with hosting environments.
+Implement API Key State Management:
+In the main App.js component, create a new state variable, e.g., const [apiKey, setApiKey] = useState(null);.
+On initial application load (useEffect with an empty dependency array), check for an existing API key in the browser's sessionStorage. If found, populate the apiKey state with it. sessionStorage is preferred over localStorage because it's less permanent and clears when the session ends, which is a good security practice for API keys.
+Create an API Key Setup Modal:
+Build a new, reusable React component named ApiKeySetup.js.
+This component should render a modal dialog (using @mui/material/Dialog).
+Modal Content & UX:
+Clear Title: "API Key Required".
+Explanation: State clearly why the key is needed (to make calls to the Gemini API).
+Security Assurance: Reassure the user that their key is saved only in their browser's session storage and is never sent to any server other than Google's API endpoints.
+Instructions: Provide a prominent, clickable link to https://aistudio.google.com/app/apikey with the text "Get your API key from Google AI Studio".
+Input Field: A TextField (from MUI) for the user to paste their key. It should be of type="password" to obscure the key.
+Actions: "Save" and "Cancel" buttons. The "Save" button should be disabled until the input field is non-empty.
+Modal Behavior:
+The main App.js component will control the modal's visibility using a state variable, e.g., const [isApiModalOpen, setIsApiModalOpen] = useState(false);.
+The modal must be displayed automatically if the apiKey state is null on app load.
+It should not be dismissible by clicking the background overlay (disableEscapeKeyDown and remove the onClose handler from the Dialog's root for background clicks, but allow the cancel button to work).
+Integrate the Modal into the Main App Flow:
+In App.js, when the user saves a key from the modal, the onSave callback should:
+Save the key to sessionStorage.
+Update the apiKey state in App.js.
+Close the modal.
+Display a success toast message (e.g., "API Key saved for this session").
+While the apiKey state is null (and the modal is open), the main application UI (the workbench itself) should be visually disabled. An effective way to do this is to apply a CSS filter: blur(4px) and pointer-events: none to the main container.
+Refactor All API Calls:
+Identify every function in the application that instantiates GoogleGenAI or makes a call to the Gemini API (e.g., handleScaffoldArgs, handleFileSelect's auto-patcher, handleConsultExpert, handleExecute).
+Modify these functions to use the apiKey from the App.js state. Do not attempt to read from process.env or any other source.
+Add checks at the beginning of these functions. If apiKey is not present, do not proceed with the API call. Instead, show an error toast and trigger the API key modal to open.
+Provide a Way to Change the Key:
+In a logical place in the UI (e.g., within the FunctionRunner.js component, near the Execute button), add a new button: "Change API Key".
+Clicking this button should simply open the ApiKeySetup.js modal again, allowing the user to enter a new key.
+Final Polish:
+Ensure the application's visual state is clear to the user at all times (e.g., loading spinners, disabled states, clear error messages).
+Review all user-facing text to be clear, concise, and helpful.
+By following these steps, you will successfully convert the workbench from a development-only tool into a robust, secure, and publicly deployable web application.
+And here is the change to create the new file for you. You can then copy and paste the prompt above into it.
